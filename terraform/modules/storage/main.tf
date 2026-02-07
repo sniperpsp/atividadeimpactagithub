@@ -70,6 +70,15 @@ resource "aws_s3_bucket_policy" "logs" {
         Sid    = "AWSLogDeliveryWrite"
         Effect = "Allow"
         Principal = {
+          AWS = "arn:aws:iam::033677994240:root"  # ELB Service Account para us-east-2
+        }
+        Action   = "s3:PutObject"
+        Resource = "${aws_s3_bucket.logs.arn}/*"
+      },
+      {
+        Sid    = "ALBLogDelivery"
+        Effect = "Allow"
+        Principal = {
           Service = "elasticloadbalancing.amazonaws.com"
         }
         Action   = "s3:PutObject"

@@ -172,6 +172,10 @@ resource "aws_lb" "main" {
   }
 
   tags = var.tags
+  
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # ALB Listener HTTP (redirect to HTTPS)

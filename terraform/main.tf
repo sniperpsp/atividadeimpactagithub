@@ -4,7 +4,6 @@
 # Descrição: Infraestrutura completa AWS para QuickOrder
 # Ambiente: Production
 # Região: us-east-2 (Ohio)
-# Budget: ~$95/mês
 # ==============================================================================
 
 # Dados locais para uso nos módulos
@@ -24,7 +23,6 @@ locals {
 # ==============================================================================
 # NETWORKING MODULE
 # ==============================================================================
-# Cria VPC, Subnets, Internet Gateway, NAT Gateway, Route Tables
 module "networking" {
   source = "./modules/networking"
 
@@ -43,7 +41,6 @@ module "networking" {
 # ==============================================================================
 # SECURITY MODULE
 # ==============================================================================
-# Cria Security Groups
 module "security" {
   source = "./modules/security"
 
@@ -56,11 +53,9 @@ module "security" {
   depends_on = [module.networking]
 }
 
-
 # ==============================================================================
 # STORAGE MODULE
 # ==============================================================================
-# Cria S3 bucket para logs
 module "storage" {
   source = "./modules/storage"
 
@@ -73,7 +68,6 @@ module "storage" {
 # ==============================================================================
 # DATABASE MODULE
 # ==============================================================================
-# Cria RDS MySQL Multi-AZ
 module "database" {
   source = "./modules/database"
 
@@ -88,8 +82,7 @@ module "database" {
   backup_retention_period = var.rds_backup_retention_period
   multi_az                = var.rds_multi_az
   allowed_security_group_ids = [
-    module.security.ec2_security_group_id,
-    module.security.eks_node_security_group_id
+    module.security.ec2_security_group_id
   ]
 
   tags = local.common_tags
@@ -98,33 +91,13 @@ module "database" {
 }
 
 # ==============================================================================
-# CACHE MODULE
+# CACHE MODULE - REMOVIDO (não está no diagrama)
 # ==============================================================================
-# Cria ElastiCache Redis
-module "cache" {
-  source = "./modules/cache"
+# module "cache" {
+#   source = "./modules/cache"
+#   ... (removido)
+# }
 
-  project_name    = var.project_name
-  environment     = var.environment
-  vpc_id          = module.networking.vpc_id
-  subnet_ids      = module.networking.private_app_subnet_ids
-  node_type       = var.redis_node_type
-  num_cache_nodes = var.redis_num_cache_nodes
-  engine_version  = var.redis_engine_version
-  allowed_security_group_ids = [
-    module.security.ec2_security_group_id,
-    module.security.eks_node_security_group_id
-  ]
-
-  tags = local.common_tags
-
-  depends_on = [module.networking, module.security]
-}
-
-# ==============================================================================
-# MESSAGING MODULE
-# ==============================================================================
-# Cria SQS Queue
 module "messaging" {
   source = "./modules/messaging"
 
@@ -137,15 +110,14 @@ module "messaging" {
 # ==============================================================================
 # DNS MODULE (Route 53 + ACM Certificate)
 # ==============================================================================
-# Cria certificado SSL ANTES do ALB
 module "dns" {
   source = "./modules/dns"
 
   project_name = var.project_name
   environment  = var.environment
   domain_name  = var.domain_name
-  alb_dns_name = "" # Será atualizado depois
-  alb_zone_id  = "" # Será atualizado depois
+  alb_dns_name = ""
+  alb_zone_id  = ""
 
   tags = local.common_tags
 }
@@ -153,7 +125,6 @@ module "dns" {
 # ==============================================================================
 # COMPUTE MODULE (EC2 + ALB + Auto Scaling)
 # ==============================================================================
-# Cria Launch Template, Auto Scaling Group, ALB, Target Group
 module "compute" {
   source = "./modules/compute"
 
@@ -179,7 +150,6 @@ module "compute" {
 # ==============================================================================
 # EKS MODULE
 # ==============================================================================
-# Cria EKS Cluster e Node Group
 module "eks" {
   source = "./modules/eks"
 
@@ -192,46 +162,10 @@ module "eks" {
   node_min_size             = var.eks_node_min_size
   node_max_size             = var.eks_node_max_size
   node_desired_size         = var.eks_node_desired_size
-  cluster_security_group_id = module.security.eks_cluster_security_group_id
-  node_security_group_id    = module.security.eks_node_security_group_id
+  cluster_security_group_id = module.security.alb_security_group_id # Temporário
+  node_security_group_id    = module.security.ec2_security_group_id # Temporário
 
   tags = local.common_tags
 
   depends_on = [module.networking, module.security]
 }
-
-# ==============================================================================
-# DNS RECORDS (Route 53 A Records)
-# ==============================================================================
-# Criar records DNS apontando para ALB DEPOIS que ALB existir
-# Só cria se a zona Route 53 existir
-resource "aws_route53_record" "main" {
-  count   = var.domain_name != "" && length(module.dns.zone_id) > 0 ? 1 : 0
-  zone_id = module.dns.zone_id
-  name    = var.domain_name
-  type    = "A"
-
-  alias {
-    name                   = module.compute.alb_dns_name
-    zone_id                = module.compute.alb_zone_id
-    evaluate_target_health = true
-  }
-
-  depends_on = [module.compute]
-}
-
-resource "aws_route53_record" "www" {
-  count   = var.domain_name != "" && length(module.dns.zone_id) > 0 ? 1 : 0
-  zone_id = module.dns.zone_id
-  name    = "www.${var.domain_name}"
-  type    = "A"
-
-  alias {
-    name                   = module.compute.alb_dns_name
-    zone_id                = module.compute.alb_zone_id
-    evaluate_target_health = true
-  }
-
-  depends_on = [module.compute]
-}
-
