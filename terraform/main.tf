@@ -123,8 +123,12 @@ module "dns" {
 }
 
 # ==============================================================================
-# COMPUTE MODULE - REMOVIDO (ALB e EC2 foram deletados)
+# EKS MODULE
 # ==============================================================================
-# module "compute" {
-#   ...
-# }
+module "eks" {
+  source = "./modules/eks"
+  
+  # Todas as configurações estão hardcoded no módulo
+  # vpc_id e subnet_ids estão fixos no módulo
+}
+

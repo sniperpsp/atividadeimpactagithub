@@ -72,6 +72,33 @@ output "rds_secret_arn" {
 #   value       = module.cache.redis_port
 # }
 
+# EKS Outputs
+output "eks_cluster_name" {
+  description = "Nome do cluster EKS"
+  value       = module.eks.cluster_name
+}
+
+output "eks_cluster_endpoint" {
+  description = "Endpoint do cluster EKS"
+  value       = module.eks.cluster_endpoint
+  sensitive   = true
+}
+
+output "eks_cluster_certificate_authority_data" {
+  description = "Certificate authority data do cluster EKS"
+  value       = module.eks.cluster_certificate_authority_data
+  sensitive   = true
+}
+
+output "eks_cluster_arn" {
+  description = "ARN do cluster EKS"
+  value       = module.eks.cluster_iam_role_arn
+}
+
+output "eks_kubeconfig_command" {
+  description = "Comando para configurar kubectl"
+  value       = "aws eks update-kubeconfig --region ${var.aws_region} --name ${module.eks.cluster_name}"
+}
 
 # SQS Outputs
 output "sqs_queue_url" {
