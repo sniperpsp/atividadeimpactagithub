@@ -146,24 +146,3 @@ module "compute" {
 
   depends_on = [module.networking, module.security, module.storage, module.dns]
 }
-
-# ==============================================================================
-# EKS MODULE
-# ==============================================================================
-module "eks" {
-  source = "./modules/eks"
-
-  project_name       = var.project_name
-  environment        = var.environment
-  vpc_id             = module.networking.vpc_id
-  subnet_ids         = module.networking.private_app_subnet_ids
-  cluster_version    = var.eks_cluster_version
-  node_instance_type = var.eks_node_instance_type
-  node_min_size      = var.eks_node_min_size
-  node_max_size      = var.eks_node_max_size
-  node_desired_size  = var.eks_node_desired_size
-
-  tags = local.common_tags
-
-  depends_on = [module.networking]
-}

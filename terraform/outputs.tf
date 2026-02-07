@@ -81,33 +81,6 @@ output "rds_secret_arn" {
 #   value       = module.cache.redis_port
 # }
 
-# EKS Outputs
-output "eks_cluster_name" {
-  description = "Nome do cluster EKS"
-  value       = module.eks.cluster_name
-}
-
-output "eks_cluster_endpoint" {
-  description = "Endpoint do cluster EKS"
-  value       = module.eks.cluster_endpoint
-  sensitive   = true
-}
-
-output "eks_cluster_certificate_authority" {
-  description = "Certificate authority do cluster EKS"
-  value       = module.eks.cluster_certificate_authority
-  sensitive   = true
-}
-
-output "eks_cluster_security_group_id" {
-  description = "Security group do cluster EKS"
-  value       = module.eks.cluster_security_group_id
-}
-
-output "eks_kubeconfig_command" {
-  description = "Comando para configurar kubectl"
-  value       = "aws eks update-kubeconfig --region ${var.aws_region} --name ${module.eks.cluster_name}"
-}
 
 # SQS Outputs
 output "sqs_queue_url" {
@@ -158,12 +131,6 @@ output "deployment_summary" {
      Database: ${module.database.database_name}
      Credentials: Stored in AWS Secrets Manager
   
-
-  ☸️  Kubernetes (EKS):
-     Cluster: ${module.eks.cluster_name}
-     Configure kubectl:
-     $ ${module.eks.cluster_name != "" ? "aws eks update-kubeconfig --region ${var.aws_region} --name ${module.eks.cluster_name}" : "N/A"}
-  
   📨 Message Queue (SQS):
      ${module.messaging.queue_url}
   
@@ -181,8 +148,6 @@ output "deployment_summary" {
   
   1. Wait for DNS propagation (~5-10 minutes)
   2. Access: https://${var.domain_name}
-  3. Configure kubectl for EKS access
-  4. Deploy applications to EKS or EC2
   5. Monitor via CloudWatch Dashboard
   
   EOT

@@ -9,7 +9,7 @@ terraform {
     
     # Habilitar criptografia e versionamento
     encrypt        = true
-    dynamodb_table = "quickorder-terraform-locks"  # Opcional: para lock de estado
+    #dynamodb_table = "quickorder-terraform-locks"  # Opcional: para lock de estado
     
     # Configurações adicionais de segurança
     # acl            = "private"
