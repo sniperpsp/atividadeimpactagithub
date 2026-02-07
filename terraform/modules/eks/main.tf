@@ -86,7 +86,7 @@ resource "aws_eks_node_group" "main" {
   instance_types = [var.node_instance_type]
   capacity_type  = "ON_DEMAND"
   version        = var.cluster_version   # Garantir mesma versão do cluster
-  ami_type       = "AL2_x86_64"          # Padrão seguro para 1.31
+  ami_type       = "AL2_x86_64"          # Amazon Linux 2 - compatível com 1.34
 
   update_config {
     max_unavailable = 1

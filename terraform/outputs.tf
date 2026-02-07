@@ -69,17 +69,17 @@ output "rds_secret_arn" {
   sensitive   = true
 }
 
-# ElastiCache Outputs
-output "redis_endpoint" {
-  description = "Endpoint do ElastiCache Redis"
-  value       = module.cache.redis_endpoint
-  sensitive   = true
-}
+# ElastiCache Outputs - REMOVIDO (não está no diagrama)
+# output "redis_endpoint" {
+#   description = "Endpoint do ElastiCache Redis"
+#   value       = module.cache.redis_endpoint
+#   sensitive   = true
+# }
 
-output "redis_port" {
-  description = "Porta do Redis"
-  value       = module.cache.redis_port
-}
+# output "redis_port" {
+#   description = "Porta do Redis"
+#   value       = module.cache.redis_port
+# }
 
 # EKS Outputs
 output "eks_cluster_name" {
@@ -158,10 +158,7 @@ output "deployment_summary" {
      Database: ${module.database.database_name}
      Credentials: Stored in AWS Secrets Manager
   
-  💾 Cache (ElastiCache Redis):
-     Endpoint: ${module.cache.redis_endpoint}
-     Port: ${module.cache.redis_port}
-  
+
   ☸️  Kubernetes (EKS):
      Cluster: ${module.eks.cluster_name}
      Configure kubectl:
