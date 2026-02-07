@@ -24,16 +24,7 @@ output "private_db_subnet_ids" {
   value       = module.networking.private_db_subnet_ids
 }
 
-# Load Balancer Outputs
-output "alb_dns_name" {
-  description = "DNS name do Application Load Balancer"
-  value       = module.compute.alb_dns_name
-}
 
-output "alb_zone_id" {
-  description = "Zone ID do Application Load Balancer"
-  value       = module.compute.alb_zone_id
-}
 
 # DNS Outputs
 output "website_url" {
@@ -104,13 +95,6 @@ output "s3_logs_bucket_arn" {
   value       = module.storage.logs_bucket_arn
 }
 
-# Certificate Output
-output "acm_certificate_arn" {
-  description = "ARN do certificado ACM"
-  value       = module.dns.certificate_arn
-}
-
-
 # Summary Output
 output "deployment_summary" {
   description = "Resumo do deployment"
@@ -122,9 +106,7 @@ output "deployment_summary" {
   
   🌐 Website URL:
      https://${var.domain_name}
-  
-  🔧 Application Load Balancer:
-     ${module.compute.alb_dns_name}
+
   
   🗄️  Database (RDS MySQL):
      Endpoint: ${module.database.rds_endpoint}

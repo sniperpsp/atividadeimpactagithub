@@ -82,7 +82,7 @@ module "database" {
   backup_retention_period = var.rds_backup_retention_period
   multi_az                = var.rds_multi_az
   allowed_security_group_ids = [
-    module.security.ec2_security_group_id
+    #module.security.ec2_security_group_id
   ]
 
   tags = local.common_tags
@@ -123,26 +123,8 @@ module "dns" {
 }
 
 # ==============================================================================
-# COMPUTE MODULE (EC2 + ALB + Auto Scaling)
+# COMPUTE MODULE - REMOVIDO (ALB e EC2 foram deletados)
 # ==============================================================================
-module "compute" {
-  source = "./modules/compute"
-
-  project_name          = var.project_name
-  environment           = var.environment
-  vpc_id                = module.networking.vpc_id
-  public_subnet_ids     = module.networking.public_subnet_ids
-  private_subnet_ids    = module.networking.private_app_subnet_ids
-  instance_type         = var.ec2_instance_type
-  asg_min_size          = var.asg_min_size
-  asg_max_size          = var.asg_max_size
-  asg_desired_capacity  = var.asg_desired_capacity
-  alb_security_group_id = module.security.alb_security_group_id
-  ec2_security_group_id = module.security.ec2_security_group_id
-  logs_bucket_name      = module.storage.logs_bucket_name
-  certificate_arn       = module.dns.certificate_arn
-
-  tags = local.common_tags
-
-  depends_on = [module.networking, module.security, module.storage, module.dns]
-}
+# module "compute" {
+#   ...
+# }

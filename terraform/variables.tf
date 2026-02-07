@@ -139,7 +139,7 @@ variable "rds_database_name" {
 variable "rds_backup_retention_period" {
   description = "Período de retenção de backups (dias)"
   type        = number
-  default     = 7
+  default     = 1
 }
 
 variable "rds_multi_az" {

@@ -32,13 +32,3 @@ resource "tls_self_signed_cert" "main" {
     "server_auth",
   ]
 }
-
-# Upload do certificado para ACM
-resource "aws_acm_certificate" "main" {
-  private_key      = tls_private_key.main.private_key_pem
-  certificate_body = tls_self_signed_cert.main.cert_pem
-
-  tags = var.tags
-}
-
-

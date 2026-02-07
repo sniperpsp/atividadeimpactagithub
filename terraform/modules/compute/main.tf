@@ -154,59 +154,6 @@ resource "aws_lb_target_group" "main" {
   tags = var.tags
 }
 
-# Application Load Balancer
-resource "aws_lb" "main" {
-  name               = "${var.project_name}-${var.environment}-alb"
-  internal           = false
-  load_balancer_type = "application"
-  security_groups    = [var.alb_security_group_id]
-  subnets            = var.public_subnet_ids
-
-  enable_deletion_protection = false
-  enable_http2               = true
-
-  access_logs {
-    bucket  = var.logs_bucket_name
-    enabled = true
-    prefix  = "alb"
-  }
-
-  tags = var.tags
-  
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-# ALB Listener HTTP (redirect to HTTPS)
-resource "aws_lb_listener" "http" {
-  load_balancer_arn = aws_lb.main.arn
-  port              = 80
-  protocol          = "HTTP"
-
-  default_action {
-    type = "redirect"
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-    }
-  }
-}
-
-# ALB Listener HTTPS
-resource "aws_lb_listener" "https" {
-  load_balancer_arn = aws_lb.main.arn
-  port              = 443
-  protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
-  certificate_arn   = var.certificate_arn
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.main.arn
-  }
-}
 
 # Auto Scaling Group
 resource "aws_autoscaling_group" "main" {
