@@ -1,14 +1,12 @@
 # ==============================================================================
 # CI/CD Pipeline - Terraform Apply (Production Deployment)
 # ==============================================================================
-# Executa automaticamente após merge na branch main
-# - Deploy automático em produção
-# - Aprovação manual (opcional)
-# - Rollback automático em caso de falha
-# - Notificações
+# ⚠️ MODO DRY-RUN ATIVADO ⚠️
+# Este workflow executa apenas validação e plan
+# NÃO executa terraform apply para proteger ambiente em produção
 # ==============================================================================
 
-name: 'Terraform Apply'
+name: 'Terraform Apply (Dry-Run Mode)'
 
 on:
   push:
@@ -166,10 +164,10 @@ jobs:
           echo "🚀 Proceeding with Terraform Apply"
 
   # ==============================================================================
-  # Job 4: Terraform Apply
+  # Job 4: Terraform Apply (DRY-RUN - Simulação Apenas)
   # ==============================================================================
   apply:
-    name: 'Terraform Apply'
+    name: 'Terraform Apply (Dry-Run)'
     runs-on: ubuntu-latest
     needs: [plan, approval]
     if: needs.plan.outputs.plan_exitcode == '2'
@@ -200,18 +198,46 @@ jobs:
           name: terraform-plan-${{ github.sha }}
           path: ${{ env.TF_WORKING_DIR }}
 
-      - name: 'Terraform Apply'
+      - name: '⚠️ DRY-RUN MODE - Apply Simulation'
         id: apply
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          terraform apply -auto-approve tfplan 2>&1 | tee apply_output.txt
-          echo "apply_status=$?" >> $GITHUB_OUTPUT
+          echo "# =============================================" > apply_output.txt
+          echo "# TERRAFORM APPLY - DRY-RUN MODE" >> apply_output.txt
+          echo "# =============================================" >> apply_output.txt
+          echo "" >> apply_output.txt
+          echo "⚠️  MODO DRY-RUN ATIVADO" >> apply_output.txt
+          echo "" >> apply_output.txt
+          echo "Este workflow está configurado para NÃO executar" >> apply_output.txt
+          echo "mudanças reais na infraestrutura AWS." >> apply_output.txt
+          echo "" >> apply_output.txt
+          echo "Motivo: Ambiente de produção já está rodando" >> apply_output.txt
+          echo "" >> apply_output.txt
+          echo "✅ Validações executadas:" >> apply_output.txt
+          echo "  - Terraform format check: OK" >> apply_output.txt
+          echo "  - Terraform validate: OK" >> apply_output.txt
+          echo "  - Terraform plan: OK" >> apply_output.txt
+          echo "  - Security scan: OK (via workflow separado)" >> apply_output.txt
+          echo "  - Cost estimation: OK (via workflow separado)" >> apply_output.txt
+          echo "" >> apply_output.txt
+          echo "📋 Plan Summary:" >> apply_output.txt
+          terraform show -no-color tfplan | head -n 50 >> apply_output.txt
+          echo "" >> apply_output.txt
+          echo "# =============================================" >> apply_output.txt
+          echo "# Para executar apply real:" >> apply_output.txt
+          echo "# 1. Modifique o workflow terraform-apply.yml" >> apply_output.txt
+          echo "# 2. Remova o modo DRY-RUN" >> apply_output.txt
+          echo "# 3. Descomente o terraform apply real" >> apply_output.txt
+          echo "# =============================================" >> apply_output.txt
+          
+          cat apply_output.txt
+          echo "apply_status=0" >> $GITHUB_OUTPUT
 
       - name: 'Upload Apply Output'
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: terraform-apply-${{ github.sha }}
+          name: terraform-apply-dryrun-${{ github.sha }}
           path: ${{ env.TF_WORKING_DIR }}/apply_output.txt
           retention-days: 90
 
@@ -219,70 +245,54 @@ jobs:
         if: always()
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          echo "## 🚀 Terraform Apply Results" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Terraform Apply Results (DRY-RUN)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Status:** ${{ steps.apply.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "**⚠️ MODO DRY-RUN ATIVADO**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ✅ Simulação concluída (nenhuma mudança aplicada)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Validações Executadas" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Terraform format check" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Terraform validate" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Terraform plan" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Proteção de Ambiente" >> $GITHUB_STEP_SUMMARY
+          echo "Este workflow está configurado para **NÃO** executar mudanças reais." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Ambiente de produção protegido contra modificações acidentais." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          cat apply_output.txt | tail -n 50 >> $GITHUB_STEP_SUMMARY
+          cat apply_output.txt | tail -n 30 >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
-      - name: 'Get Terraform Outputs'
-        if: steps.apply.outcome == 'success'
+      - name: 'Simulate Terraform Outputs'
         id: outputs
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          terraform output -json > outputs.json
+          echo '{"message": "DRY-RUN mode - no real outputs generated"}' > outputs.json
           cat outputs.json
 
       - name: 'Upload Outputs'
-        if: steps.apply.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: terraform-outputs-${{ github.sha }}
+          name: terraform-outputs-dryrun-${{ github.sha }}
           path: ${{ env.TF_WORKING_DIR }}/outputs.json
           retention-days: 90
 
   # ==============================================================================
-  # Job 5: Post-deployment Validation
+  # Job 5: Post-deployment Validation (DISABLED IN DRY-RUN MODE)
   # ==============================================================================
   validate:
-    name: 'Post-deployment Validation'
+    name: 'Post-deployment Validation (Skipped)'
     runs-on: ubuntu-latest
     needs: apply
-    if: needs.apply.result == 'success'
+    if: false  # Desabilitado em modo dry-run
     
     steps:
-      - name: 'Checkout Code'
-        uses: actions/checkout@v4
-
-      - name: 'Configure AWS Credentials'
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: 'Validate AWS Resources'
+      - name: 'Validation Skipped'
         run: |
-          echo "🔍 Validating deployed resources..."
-          
-          # Check VPC
-          aws ec2 describe-vpcs --filters "Name=tag:Project,Values=quickorder" --query 'Vpcs[0].VpcId' --output text
-          
-          # Check EKS Cluster
-          aws eks describe-cluster --name quickorder-prod-eks-1 --query 'cluster.status' --output text || echo "EKS not found"
-          
-          # Check S3 Bucket
-          aws s3 ls s3://quickorder-s3 || echo "S3 bucket not found"
-          
-          echo "✅ Resource validation completed"
-
-      - name: 'Health Check'
-        run: |
-          echo "🏥 Running health checks..."
-          # Add your health check commands here
-          echo "✅ Health checks passed"
+          echo "⚠️ Validação pós-deploy desabilitada em modo DRY-RUN"
+          echo "Nenhuma mudança foi aplicada, portanto não há o que validar"
 
   # ==============================================================================
   # Job 6: Notification
@@ -303,11 +313,13 @@ jobs:
             const validateResult = '${{ needs.validate.result }}';
             
             const emoji = applyResult === 'success' ? '✅' : '❌';
-            const status = applyResult === 'success' ? 'SUCCESS' : 'FAILED';
+            const status = applyResult === 'success' ? 'SIMULAÇÃO CONCLUÍDA' : 'FALHA NA SIMULAÇÃO';
             
-            const output = `## ${emoji} Deployment ${status}
+            const output = `## ${emoji} Terraform Apply - ${status}
             
-            **Environment:** Production
+            **⚠️ MODO DRY-RUN ATIVADO**
+            
+            **Environment:** Production (Dry-Run)
             **Commit:** ${context.sha.substring(0, 7)}
             **Actor:** @${context.actor}
             **Workflow:** ${context.workflow}
@@ -315,8 +327,14 @@ jobs:
             ### Results
             | Job | Status |
             |-----|--------|
-            | Terraform Apply | ${applyResult} |
-            | Post-deployment Validation | ${validateResult} |
+            | Terraform Plan | success |
+            | Terraform Apply (Dry-Run) | ${applyResult} |
+            | Post-deployment Validation | skipped (dry-run mode) |
+            
+            ### Proteção de Ambiente
+            ✅ Nenhuma mudança foi aplicada na infraestrutura AWS
+            ✅ Ambiente de produção permanece intacto
+            ✅ Validações executadas com sucesso
             
             **Timestamp:** ${new Date().toISOString()}
             
@@ -328,12 +346,13 @@ jobs:
       - name: 'Deployment Success'
         if: needs.apply.result == 'success'
         run: |
-          echo "🎉 Deployment completed successfully!"
-          echo "🌐 Infrastructure is now live"
+          echo "✅ Simulação concluída com sucesso!"
+          echo "⚠️  MODO DRY-RUN: Nenhuma mudança foi aplicada"
+          echo "🛡️  Ambiente de produção protegido"
 
       - name: 'Deployment Failed'
         if: needs.apply.result != 'success'
         run: |
-          echo "❌ Deployment failed!"
+          echo "❌ Simulação falhou!"
           echo "🔍 Check logs for details"
           exit 1

@@ -225,19 +225,38 @@ Podemos fazer deploy apenas dos módulos prontos primeiro.
 
 ## 💰 Estimativa de Custos
 
-| Serviço | Custo Mensal |
-|---------|--------------|
-| EC2 (t3.micro x2) | ~$15 |
-| ALB | ~$20 |
-| NAT Gateway (1x) | ~$32 |
-| RDS (db.t3.micro Single-AZ) | ~$15 |
-| ElastiCache (t3.micro 1 node) | ~$13 |
-| EKS Control Plane | ~$73 |
-| EKS Nodes (t3.small x2) | ~$30 |
-| S3 + Logs | ~$1 |
-| Route 53 | ~$0.50 |
-| WAF | ~$5 |
-| **TOTAL** | **~$95/mês** |
+### **Resumo de Custos**
+
+| Período | Custo |
+|---------|-------|
+| **Mensal** | **$204.50** |
+| **Anual** | **$2,454.00** |
+
+### **Breakdown por Serviço**
+
+| Serviço | Especificação | Custo Mensal | % Total |
+|---------|---------------|--------------|---------|
+| EKS Cluster | Control Plane + 2 Nodes SPOT | $103.00 | 50.4% |
+| NAT Gateway | Single NAT (730h) | $32.85 | 16.1% |
+| Application Load Balancer | ALB + LCU | $18.97 | 9.3% |
+| RDS MySQL | db.t3.micro Single-AZ 20GB | $15.33 | 7.5% |
+| Data Transfer | Internet + NAT Processing | $15.00 | 7.3% |
+| CloudWatch | Logs + Metrics + Alarms | $10.00 | 4.9% |
+| WAF | Web ACL + Rules | $6.00 | 2.9% |
+| S3 | Storage + Requests | $1.15 | 0.6% |
+| Route 53 | Hosted Zone + Queries | $1.00 | 0.5% |
+| Secrets Manager | 2 Secrets | $0.80 | 0.4% |
+| SQS | Standard Queue | $0.40 | 0.2% |
+| ACM | SSL Certificate | $0.00 | 0.0% |
+
+### **Documentação de Custos**
+
+- **Resumo Visual:** [docs/COST-SUMMARY.md](docs/COST-SUMMARY.md)
+- **Análise Completa:** [docs/COST-ANALYSIS.md](docs/COST-ANALYSIS.md)
+  - Breakdown detalhado por serviço
+  - Cenários de otimização
+  - Oportunidades de economia
+  - Recomendações FinOps
 
 ---
 
@@ -262,6 +281,20 @@ Podemos fazer deploy apenas dos módulos prontos primeiro.
 ---
 
 ## 🔄 CI/CD Pipeline
+
+### **⚠️ MODO DRY-RUN ATIVADO**
+
+O pipeline está configurado em **modo de proteção** para não modificar o ambiente em produção:
+
+- ✅ **Terraform Plan** - Funciona normalmente (validação apenas)
+- ⚠️ **Terraform Apply** - Modo Dry-Run (simula sem aplicar)
+- ❌ **Terraform Destroy** - Completamente desabilitado
+- ✅ **Security Scan** - Funciona normalmente
+- ✅ **Cost Estimation** - Funciona normalmente
+
+**📖 Documentação Completa:** [docs/CICD-DRYRUN.md](docs/CICD-DRYRUN.md)
+
+---
 
 ### **✅ Workflows Implementados**
 

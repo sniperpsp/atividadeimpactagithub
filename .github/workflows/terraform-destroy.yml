@@ -1,13 +1,12 @@
 # ==============================================================================
 # CI/CD Pipeline - Terraform Destroy (Infrastructure Teardown)
 # ==============================================================================
-# Workflow manual para destruir infraestrutura de forma controlada
-# - Requer aprovação manual dupla
-# - Backup do estado antes da destruição
-# - Logs completos
+# ⚠️⚠️⚠️ WORKFLOW DESABILITADO ⚠️⚠️⚠️
+# Este workflow está DESABILITADO para proteger o ambiente em produção
+# Para habilitar, remova a condição 'if: false' no job validate-input
 # ==============================================================================
 
-name: 'Terraform Destroy'
+name: 'Terraform Destroy (DISABLED)'
 
 on:
   workflow_dispatch:
@@ -37,29 +36,25 @@ permissions:
 
 jobs:
   # ==============================================================================
-  # Job 1: Validation
+  # Job 1: Validation (DISABLED)
   # ==============================================================================
   validate-input:
-    name: 'Validate Destruction Request'
+    name: 'Validate Destruction Request (DISABLED)'
     runs-on: ubuntu-latest
+    if: false  # ⚠️ WORKFLOW DESABILITADO - Remova esta linha para habilitar
     
     steps:
-      - name: 'Validate Confirmation'
+      - name: 'Workflow Disabled'
         run: |
-          if [ "${{ github.event.inputs.confirmation }}" != "DESTROY" ]; then
-            echo "❌ Invalid confirmation. You must type 'DESTROY' to proceed."
-            exit 1
-          fi
-          echo "✅ Confirmation validated"
-
-      - name: 'Log Destruction Request'
-        run: |
-          echo "## 🚨 DESTRUCTION REQUEST" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Requested by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Reason:** ${{ github.event.inputs.reason }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Timestamp:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+          echo "⚠️⚠️⚠️ WORKFLOW DESABILITADO ⚠️⚠️⚠️"
+          echo ""
+          echo "Este workflow está desabilitado para proteger o ambiente em produção."
+          echo ""
+          echo "Para habilitar:"
+          echo "1. Edite .github/workflows/terraform-destroy.yml"
+          echo "2. Remova a linha 'if: false' do job validate-input"
+          echo "3. Commit e push"
+          exit 1
 
   # ==============================================================================
   # Job 2: Backup State
