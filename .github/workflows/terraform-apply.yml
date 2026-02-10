@@ -1,12 +1,12 @@
 # ==============================================================================
 # CI/CD Pipeline - Terraform Apply (Production Deployment)
 # ==============================================================================
-# ⚠️ MODO DRY-RUN ATIVADO ⚠️
-# Este workflow executa apenas validação e plan
-# NÃO executa terraform apply para proteger ambiente em produção
+# ⚠️⚠️⚠️ WORKFLOW DESABILITADO ⚠️⚠️⚠️
+# Este workflow está COMPLETAMENTE DESABILITADO
+# Apenas o Terraform Plan está ativo
 # ==============================================================================
 
-name: 'Terraform Apply (Dry-Run Mode)'
+name: 'Terraform Apply (DISABLED)'
 
 on:
   push:
@@ -42,8 +42,9 @@ jobs:
   # Job 1: Pre-deployment Checks
   # ==============================================================================
   pre-checks:
-    name: 'Pre-deployment Checks'
+    name: 'Pre-deployment Checks (DISABLED)'
     runs-on: ubuntu-latest
+    if: false  # ⚠️ WORKFLOW DESABILITADO
     
     outputs:
       should_deploy: ${{ steps.check.outputs.should_deploy }}

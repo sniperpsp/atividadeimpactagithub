@@ -1,13 +1,12 @@
 # ==============================================================================
 # CI/CD Pipeline - Cost Estimation (Scheduled)
 # ==============================================================================
-# Monitora custos da infraestrutura usando Infracost
-# - Estimativa de custos mensais
-# - Comparação com baseline
-# - Alertas de aumento de custos
+# ⚠️⚠️⚠️ WORKFLOW DESABILITADO ⚠️⚠️⚠️
+# Este workflow está COMPLETAMENTE DESABILITADO
+# Apenas o Terraform Plan está ativo
 # ==============================================================================
 
-name: 'Cost Estimation'
+name: 'Cost Estimation (DISABLED)'
 
 on:
   schedule:
@@ -30,11 +29,12 @@ permissions:
 
 jobs:
   # ==============================================================================
-  # Job 1: Cost Estimation
+  # Job 1: Cost Estimation (DISABLED)
   # ==============================================================================
   infracost:
-    name: 'Infracost Analysis'
+    name: 'Infracost Analysis (DISABLED)'
     runs-on: ubuntu-latest
+    if: false  # ⚠️ WORKFLOW DESABILITADO
     
     steps:
       - name: 'Checkout Code'
