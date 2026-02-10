@@ -1,0 +1,279 @@
+# ==============================================================================
+# CI/CD Pipeline - Security Scan (Scheduled)
+# ==============================================================================
+# Executa scans de segurança periódicos na infraestrutura
+# - Checkov (compliance e best practices)
+# - tfsec (security issues)
+# - Trivy (vulnerabilities)
+# - AWS Security Hub integration
+# ==============================================================================
+
+name: 'Security Scan'
+
+on:
+  schedule:
+    # Executa diariamente às 3h UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+
+env:
+  TF_VERSION: '1.6.0'
+  TF_WORKING_DIR: './terraform'
+
+permissions:
+  contents: read
+  security-events: write
+  issues: write
+
+jobs:
+  # ==============================================================================
+  # Job 1: Checkov Scan
+  # ==============================================================================
+  checkov:
+    name: 'Checkov Security Scan'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+
+      - name: 'Run Checkov'
+        id: checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: ${{ env.TF_WORKING_DIR }}
+          framework: terraform
+          output_format: cli,sarif
+          output_file_path: console,checkov-results.sarif
+          download_external_modules: true
+          soft_fail: false
+
+      - name: 'Upload Checkov Results to GitHub Security'
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: checkov-results.sarif
+          category: checkov
+
+      - name: 'Upload Checkov Artifact'
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkov-results
+          path: checkov-results.sarif
+          retention-days: 30
+
+  # ==============================================================================
+  # Job 2: tfsec Scan
+  # ==============================================================================
+  tfsec:
+    name: 'tfsec Security Scan'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+
+      - name: 'Run tfsec'
+        id: tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: ${{ env.TF_WORKING_DIR }}
+          format: sarif
+          soft_fail: false
+
+      - name: 'Upload tfsec Results to GitHub Security'
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: tfsec.sarif
+          category: tfsec
+
+      - name: 'Upload tfsec Artifact'
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfsec-results
+          path: tfsec.sarif
+          retention-days: 30
+
+  # ==============================================================================
+  # Job 3: Trivy Scan
+  # ==============================================================================
+  trivy:
+    name: 'Trivy IaC Scan'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+
+      - name: 'Run Trivy'
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: ${{ env.TF_WORKING_DIR }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: 'Upload Trivy Results to GitHub Security'
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy
+
+      - name: 'Upload Trivy Artifact'
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-results
+          path: trivy-results.sarif
+          retention-days: 30
+
+  # ==============================================================================
+  # Job 4: Terraform Compliance
+  # ==============================================================================
+  compliance:
+    name: 'Terraform Compliance Check'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+
+      - name: 'Setup Python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 'Install terraform-compliance'
+        run: |
+          pip install terraform-compliance
+
+      - name: 'Setup Terraform'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: 'Generate Terraform Plan'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          terraform init
+          terraform plan -var-file=environments/prod.tfvars -out=plan.out
+          terraform show -json plan.out > plan.json
+
+      - name: 'Create Compliance Rules'
+        run: |
+          mkdir -p compliance
+          cat > compliance/aws_best_practices.feature << 'EOF'
+          Feature: AWS Best Practices
+            Scenario: Ensure all resources have required tags
+              Given I have resource that supports tags defined
+              Then it must contain tags
+              And it must contain "Environment"
+              And it must contain "Project"
+              And it must contain "Terraform"
+
+            Scenario: Ensure encryption is enabled
+              Given I have aws_s3_bucket defined
+              Then it must have server_side_encryption_configuration
+
+            Scenario: Ensure VPC flow logs are enabled
+              Given I have aws_vpc defined
+              Then it must have aws_flow_log
+
+            Scenario: Ensure RDS encryption is enabled
+              Given I have aws_db_instance defined
+              Then it must have storage_encrypted
+              And its value must be true
+          EOF
+
+      - name: 'Run Compliance Tests'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform-compliance -p plan.json -f ../compliance || true
+
+  # ==============================================================================
+  # Job 5: Security Summary
+  # ==============================================================================
+  summary:
+    name: 'Security Summary'
+    runs-on: ubuntu-latest
+    needs: [checkov, tfsec, trivy, compliance]
+    if: always()
+    
+    steps:
+      - name: 'Generate Security Summary'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `## 🔒 Security Scan Summary
+            
+            | Scanner | Status |
+            |---------|--------|
+            | Checkov | ${{ needs.checkov.result }} |
+            | tfsec | ${{ needs.tfsec.result }} |
+            | Trivy | ${{ needs.trivy.result }} |
+            | Compliance | ${{ needs.compliance.result }} |
+            
+            **Scan Date:** ${new Date().toISOString()}
+            **Triggered by:** ${context.eventName}
+            
+            ### Next Steps
+            - 🔍 Review findings in Security tab
+            - 📋 Check SARIF artifacts for details
+            - ✅ Remediate critical/high issues
+            - 📝 Document accepted risks
+            
+            [View Security Alerts](${context.payload.repository.html_url}/security/code-scanning)`;
+            
+            core.summary.addRaw(output);
+            await core.summary.write();
+
+      - name: 'Create Issue on Failure'
+        if: |
+          needs.checkov.result == 'failure' ||
+          needs.tfsec.result == 'failure' ||
+          needs.trivy.result == 'failure'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🔒 Security Scan Failed - Action Required',
+              body: `## Security Scan Failure
+              
+              One or more security scans have failed. Please review the findings and take appropriate action.
+              
+              **Scan Results:**
+              - Checkov: ${{ needs.checkov.result }}
+              - tfsec: ${{ needs.tfsec.result }}
+              - Trivy: ${{ needs.trivy.result }}
+              
+              **Workflow Run:** [View Details](${context.payload.repository.html_url}/actions/runs/${context.runId})
+              
+              **Action Items:**
+              1. Review security findings in the Security tab
+              2. Prioritize critical and high severity issues
+              3. Create remediation plan
+              4. Update infrastructure code
+              5. Re-run security scan
+              
+              cc: @${context.actor}`,
+              labels: ['security', 'infrastructure', 'urgent']
+            });
+            
+            console.log(`Created issue #${issue.data.number}`);

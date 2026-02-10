@@ -119,9 +119,12 @@ quickorder-infrastructure/
 │   ├── DEPLOYMENT.md
 │   └── COSTS.md
 │
-├── .github/workflows/          ⏳ A CRIAR
+├── .github/workflows/          ✅ COMPLETO
 │   ├── terraform-plan.yml
-│   └── terraform-apply.yml
+│   ├── terraform-apply.yml
+│   ├── terraform-destroy.yml
+│   ├── security-scan.yml
+│   └── cost-estimation.yml
 │
 ├── README.md                   ✅ ESTE ARQUIVO
 └── .gitignore
@@ -258,12 +261,80 @@ Podemos fazer deploy apenas dos módulos prontos primeiro.
 
 ---
 
-## 🎯 O QUE VOCÊ QUER FAZER AGORA?
+## 🔄 CI/CD Pipeline
 
-1. **Completar todos os módulos** - Eu crio tudo
-2. **Criar página web** - HTML + Logo QuickOrder
-3. **Criar GitHub Actions** - CI/CD
-4. **Criar documentação** - ARCHITECTURE.md, DECISIONS.md
-5. **Deploy parcial** - Testar módulos prontos
+### **✅ Workflows Implementados**
 
-**Me diga o que prefere e eu continuo! 🚀**
+Pipeline completo de CI/CD usando GitHub Actions:
+
+1. **Terraform Plan** - Validação automática em Pull Requests
+   - Validação de sintaxe e formatação
+   - Security scan (Checkov + tfsec + Trivy)
+   - Terraform plan com comentários no PR
+   - Estimativa de custos (Infracost)
+
+2. **Terraform Apply** - Deploy automático em produção
+   - Execução após merge na main
+   - Aprovação manual obrigatória
+   - Validação pós-deploy
+   - Notificações automáticas
+
+3. **Terraform Destroy** - Destruição controlada
+   - Workflow manual apenas
+   - Backup automático do estado
+   - Dupla aprovação necessária
+   - Logs completos
+
+4. **Security Scan** - Análise de segurança
+   - Execução diária às 3h UTC
+   - Integração com GitHub Security
+   - Criação automática de issues em falhas
+
+5. **Cost Estimation** - Monitoramento de custos
+   - Execução semanal às 9h UTC
+   - Alertas de threshold (>$150/mês)
+   - Recomendações FinOps
+
+### **🚀 Quick Start**
+
+```bash
+# 1. Configure secrets no GitHub
+Settings → Secrets → Actions → New repository secret
+# - AWS_ACCESS_KEY_ID
+# - AWS_SECRET_ACCESS_KEY
+# - INFRACOST_API_KEY (opcional)
+
+# 2. Configure ambientes
+Settings → Environments → New environment
+# - production (com required reviewers)
+# - destroy-prod (com required reviewers)
+# - destroy-staging (com required reviewers)
+
+# 3. Teste o CI/CD
+git checkout -b test/cicd
+# Faça alterações em terraform/
+git add . && git commit -m "test: CI/CD"
+git push origin test/cicd
+# Crie um Pull Request
+
+# 4. Monitore
+# Actions → Terraform Plan → Latest run
+```
+
+### **📚 Documentação**
+
+- **Quick Start:** [docs/CICD-QUICKSTART.md](docs/CICD-QUICKSTART.md)
+- **Documentação Completa:** [docs/CICD.md](docs/CICD.md)
+- **Script de Setup:** [scripts/setup-cicd.ps1](scripts/setup-cicd.ps1)
+
+---
+
+## 🎯 PRÓXIMOS PASSOS
+
+1. ✅ **CI/CD Configurado** - Workflows prontos para uso
+2. **Completar módulos Terraform** - Compute, Database, Cache, etc.
+3. **Criar página web** - HTML + Logo QuickOrder
+4. **Criar documentação adicional** - ARCHITECTURE.md, DECISIONS.md
+5. **Deploy em produção** - Testar infraestrutura completa
+
+**Me diga o que prefere fazer agora! 🚀**

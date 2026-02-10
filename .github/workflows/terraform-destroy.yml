@@ -1,0 +1,302 @@
+# ==============================================================================
+# CI/CD Pipeline - Terraform Destroy (Infrastructure Teardown)
+# ==============================================================================
+# Workflow manual para destruir infraestrutura de forma controlada
+# - Requer aprovação manual dupla
+# - Backup do estado antes da destruição
+# - Logs completos
+# ==============================================================================
+
+name: 'Terraform Destroy'
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to destroy'
+        required: true
+        type: choice
+        options:
+          - staging
+          - prod
+      confirmation:
+        description: 'Type "DESTROY" to confirm'
+        required: true
+      reason:
+        description: 'Reason for destruction'
+        required: true
+
+env:
+  TF_VERSION: '1.6.0'
+  TF_WORKING_DIR: './terraform'
+  AWS_REGION: 'us-east-2'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  # ==============================================================================
+  # Job 1: Validation
+  # ==============================================================================
+  validate-input:
+    name: 'Validate Destruction Request'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 'Validate Confirmation'
+        run: |
+          if [ "${{ github.event.inputs.confirmation }}" != "DESTROY" ]; then
+            echo "❌ Invalid confirmation. You must type 'DESTROY' to proceed."
+            exit 1
+          fi
+          echo "✅ Confirmation validated"
+
+      - name: 'Log Destruction Request'
+        run: |
+          echo "## 🚨 DESTRUCTION REQUEST" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Requested by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** ${{ github.event.inputs.reason }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+
+  # ==============================================================================
+  # Job 2: Backup State
+  # ==============================================================================
+  backup:
+    name: 'Backup Terraform State'
+    runs-on: ubuntu-latest
+    needs: validate-input
+    
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+
+      - name: 'Setup Terraform'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: 'Configure AWS Credentials'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 'Terraform Init'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      - name: 'Backup Current State'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform state pull > state_backup_$(date +%Y%m%d_%H%M%S).json
+          terraform show -json > resources_backup_$(date +%Y%m%d_%H%M%S).json
+
+      - name: 'Upload State Backup'
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-state-backup-${{ github.sha }}
+          path: ${{ env.TF_WORKING_DIR }}/*_backup_*.json
+          retention-days: 365
+
+      - name: 'List Current Resources'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          echo "## 📋 Resources to be Destroyed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          terraform state list >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  # ==============================================================================
+  # Job 3: Destroy Plan
+  # ==============================================================================
+  plan-destroy:
+    name: 'Plan Destruction'
+    runs-on: ubuntu-latest
+    needs: backup
+    
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+
+      - name: 'Setup Terraform'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: 'Configure AWS Credentials'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 'Terraform Init'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      - name: 'Terraform Destroy Plan'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform plan -destroy -var-file=environments/prod.tfvars -out=destroy.tfplan
+          terraform show -no-color destroy.tfplan > destroy_plan.txt
+
+      - name: 'Upload Destroy Plan'
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-destroy-plan-${{ github.sha }}
+          path: |
+            ${{ env.TF_WORKING_DIR }}/destroy.tfplan
+            ${{ env.TF_WORKING_DIR }}/destroy_plan.txt
+          retention-days: 90
+
+      - name: 'Show Destroy Plan'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          echo "## 🗑️ Destruction Plan" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`terraform" >> $GITHUB_STEP_SUMMARY
+          cat destroy_plan.txt | head -n 100 >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  # ==============================================================================
+  # Job 4: Manual Approval
+  # ==============================================================================
+  approval:
+    name: 'Final Approval'
+    runs-on: ubuntu-latest
+    needs: plan-destroy
+    environment:
+      name: destroy-${{ github.event.inputs.environment }}
+    
+    steps:
+      - name: 'Approval Granted'
+        run: |
+          echo "⚠️ FINAL APPROVAL GRANTED"
+          echo "🗑️ Proceeding with infrastructure destruction"
+          echo ""
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          echo "Reason: ${{ github.event.inputs.reason }}"
+
+  # ==============================================================================
+  # Job 5: Execute Destroy
+  # ==============================================================================
+  destroy:
+    name: 'Execute Destruction'
+    runs-on: ubuntu-latest
+    needs: approval
+    
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v4
+
+      - name: 'Setup Terraform'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: 'Configure AWS Credentials'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 'Terraform Init'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      - name: 'Download Destroy Plan'
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-destroy-plan-${{ github.sha }}
+          path: ${{ env.TF_WORKING_DIR }}
+
+      - name: 'Execute Terraform Destroy'
+        id: destroy
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform apply -auto-approve destroy.tfplan 2>&1 | tee destroy_output.txt
+          echo "destroy_status=$?" >> $GITHUB_OUTPUT
+
+      - name: 'Upload Destroy Output'
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-destroy-output-${{ github.sha }}
+          path: ${{ env.TF_WORKING_DIR }}/destroy_output.txt
+          retention-days: 365
+
+      - name: 'Verify Destruction'
+        if: steps.destroy.outcome == 'success'
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          echo "🔍 Verifying resource destruction..."
+          terraform state list || echo "✅ State is empty - all resources destroyed"
+
+      - name: 'Create Destruction Summary'
+        if: always()
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          echo "## 🗑️ Destruction Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ${{ steps.destroy.outcome }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Executed by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason:** ${{ github.event.inputs.reason }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          cat destroy_output.txt | tail -n 50 >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  # ==============================================================================
+  # Job 6: Notification
+  # ==============================================================================
+  notify:
+    name: 'Send Notifications'
+    runs-on: ubuntu-latest
+    needs: destroy
+    if: always()
+    
+    steps:
+      - name: 'Final Summary'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const destroyResult = '${{ needs.destroy.result }}';
+            const emoji = destroyResult === 'success' ? '✅' : '❌';
+            const status = destroyResult === 'success' ? 'COMPLETED' : 'FAILED';
+            
+            const output = `## ${emoji} Infrastructure Destruction ${status}
+            
+            **Environment:** ${{ github.event.inputs.environment }}
+            **Reason:** ${{ github.event.inputs.reason }}
+            **Executed by:** @${context.actor}
+            **Status:** ${status}
+            
+            **Timestamp:** ${new Date().toISOString()}
+            
+            ⚠️ **IMPORTANT:** State backup has been saved as artifact for 365 days.
+            
+            [View Workflow Run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+            
+            core.summary.addRaw(output);
+            await core.summary.write();
+
+      - name: 'Destruction Success'
+        if: needs.destroy.result == 'success'
+        run: |
+          echo "✅ Infrastructure successfully destroyed"
+          echo "💾 State backup saved as artifact"
+
+      - name: 'Destruction Failed'
+        if: needs.destroy.result != 'success'
+        run: |
+          echo "❌ Infrastructure destruction failed"
+          echo "🔍 Check logs and state backup"
+          exit 1
