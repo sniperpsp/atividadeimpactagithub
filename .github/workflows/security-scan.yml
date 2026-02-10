@@ -1,14 +1,12 @@
 # ==============================================================================
 # CI/CD Pipeline - Security Scan (Scheduled)
 # ==============================================================================
-# Executa scans de segurança periódicos na infraestrutura
-# - Checkov (compliance e best practices)
-# - tfsec (security issues)
-# - Trivy (vulnerabilities)
-# - AWS Security Hub integration
+# ⚠️⚠️⚠️ WORKFLOW DESABILITADO ⚠️⚠️⚠️
+# Este workflow está COMPLETAMENTE DESABILITADO
+# Apenas o Terraform Plan está ativo
 # ==============================================================================
 
-name: 'Security Scan'
+name: 'Security Scan (DISABLED)'
 
 on:
   schedule:
@@ -32,11 +30,12 @@ permissions:
 
 jobs:
   # ==============================================================================
-  # Job 1: Checkov Scan
+  # Job 1: Checkov Scan (DISABLED)
   # ==============================================================================
   checkov:
-    name: 'Checkov Security Scan'
+    name: 'Checkov Security Scan (DISABLED)'
     runs-on: ubuntu-latest
+    if: false  # ⚠️ WORKFLOW DESABILITADO
     
     steps:
       - name: 'Checkout Code'
